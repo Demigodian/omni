@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="omni">
@@ -25170,7 +25171,275 @@ Return valid JSON with this exact schema:
             const pool = getActiveCards();
             const sample = [...pool].sort(() => Math.random() - 0.5).slice(0, Math.min(6, pool.length));
 
-            document.getElementByIdconst GOETHE_LESSONS = [
+            document.getElementById('matchBoardGrid').classList.remove('hidden');
+            document.getElementById('matchWinCard').classList.add('hidden');
+
+            matchTiles = [];
+            sample.forEach(c => {
+                matchTiles.push({ id: c.id, text: c.de, side: 'de', matched: false });
+                matchTiles.push({ id: c.id, text: c.ua, side: 'ua', matched: false });
+            });
+            matchTiles.sort(() => Math.random() - 0.5);
+            matchFirstIdx = null;
+            matchDoneCount = 0;
+            renderMatchBoard();
+
+            matchStartTime = performance.now();
+            matchIntervalId = setInterval(() => {
+                document.getElementById('matchTimerText').textContent = `${((performance.now() - matchStartTime) / 1000).toFixed(1)} с`;
+            }, 100);
+        }
+
+        function renderMatchBoard() {
+            const grid = document.getElementById('matchBoardGrid');
+            grid.innerHTML = '';
+            matchTiles.forEach((tile, i) => {
+                const btn = document.createElement('button');
+                btn.className = `match-tile ${tile.matched ? 'matched' : ''} ${matchFirstIdx === i ? 'selected' : ''}`;
+                btn.textContent = tile.text;
+                btn.onclick = () => onMatchTileTap(i);
+                grid.appendChild(btn);
+            });
+        }
+
+        function onMatchTileTap(idx) {
+            if (matchTiles[idx].matched) return;
+            if (matchFirstIdx === idx) { matchFirstIdx = null; return renderMatchBoard(); }
+            if (matchFirstIdx === null) {
+                matchFirstIdx = idx;
+                return renderMatchBoard();
+            }
+
+            const t1 = matchTiles[matchFirstIdx];
+            const t2 = matchTiles[idx];
+            if (t1.id === t2.id && t1.side !== t2.side) {
+                t1.matched = true;
+                t2.matched = true;
+                matchDoneCount += 2;
+                matchFirstIdx = null;
+                renderMatchBoard();
+
+                if (matchDoneCount === matchTiles.length) {
+                    clearInterval(matchIntervalId);
+                    const sec = parseFloat(((performance.now() - matchStartTime) / 1000).toFixed(1));
+                    const setObj = getActiveSetObject();
+                    if (setObj && !setObj.isSmart) {
+                        if (!setObj.bestMatch || sec < setObj.bestMatch) {
+                            setObj.bestMatch = sec;
+                            saveAppState();
+                        }
+                    }
+                    setTimeout(() => {
+                        document.getElementById('matchBoardGrid').classList.add('hidden');
+                        document.getElementById('matchWinCard').classList.remove('hidden');
+                        document.getElementById('matchElapsedLabel').textContent = `Твій результат: ${sec} с`;
+                        document.getElementById('matchBestLabel').textContent = setObj?.bestMatch ? `Найкращий рекорд набору: ${setObj.bestMatch} с` : '';
+                    }, 250);
+                }
+            } else {
+                const prev = matchFirstIdx;
+                matchFirstIdx = null;
+                renderMatchBoard();
+                const cells = document.getElementById('matchBoardGrid').querySelectorAll('button');
+                [prev, idx].forEach(k => cells[k]?.classList.add('shake'));
+            }
+        }
+
+        /* ==================== 18. CREATE SET, BULK IMPORT & BACKUP MODALS ==================== */
+        function openModal(id) {
+            if (id === 'backupModal') {
+                const keyInp = document.getElementById('geminiApiKeyInput');
+                if (keyInp) keyInp.value = appState.geminiApiKey || '';
+            }
+            document.getElementById(id).classList.remove('hidden');
+        }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        function parseBulkCardLines(rawText) {
+            const cards = [];
+            if (!rawText) return cards;
+            rawText.split('\n').forEach((line, i) => {
+                const trimmed = line.trim();
+                if (!trimmed) return;
+                let parts = [];
+                if (trimmed.includes('|')) parts = trimmed.split('|');
+                else if (trimmed.includes(';')) parts = trimmed.split(';');
+                else if (trimmed.includes('—')) parts = trimmed.split('—');
+                else if (trimmed.includes('–')) parts = trimmed.split('–');
+                else parts = trimmed.split(' - ');
+
+                if (parts.length >= 2 && parts[0].trim() && parts[1].trim()) {
+                    cards.push({
+                        id: `c-${Date.now()}-${i}`,
+                        de: parts[0].trim(),
+                        ua: parts[1].trim(),
+                        ex: parts[2] ? parts[2].trim() : '',
+                        exUa: parts.length >= 6 ? parts[3].trim() : '',
+                        forms: parts.length >= 6 ? (parts[4] ? parts[4].trim() : '') : (parts[3] ? parts[3].trim() : ''),
+                        note: parts.length >= 6 ? (parts[5] ? parts[5].trim() : '') : (parts[4] ? parts[4].trim() : ''),
+                        img: '',
+                        at: false,
+                        starred: false,
+                        reps: 0,
+                        interval: 0,
+                        easeFactor: 2.5,
+                        nextReview: 0
+                    });
+                }
+            });
+            return cards;
+        }
+
+        function openNewSetModal() {
+            document.getElementById('inputSetTitle').value = '';
+            document.getElementById('inputSetDesc').value = '';
+            document.getElementById('inputSetBulk').value = '';
+            openModal('newSetModal');
+        }
+
+        function createNewSet() {
+            const title = document.getElementById('inputSetTitle').value.trim() || 'Мій новий набір';
+            const desc = document.getElementById('inputSetDesc').value.trim();
+            const raw = document.getElementById('inputSetBulk').value.trim();
+
+            const cards = parseBulkCardLines(raw);
+
+            if (!cards.length) {
+                cards.push({
+                    id: 'c-' + Date.now(),
+                    de: 'das Beispiel',
+                    ua: 'приклад',
+                    ex: 'Das ist ein gutes Beispiel.',
+                    forms: 'die Beispiele',
+                    note: '',
+                    img: '',
+                    at: false,
+                    starred: false,
+                    reps: 0,
+                    interval: 0,
+                    easeFactor: 2.5,
+                    nextReview: 0
+                });
+            }
+
+            const newSet = {
+                id: 'set-' + Date.now(),
+                title,
+                description: desc || `${cards.length} карток`,
+                bestMatch: null,
+                cards
+            };
+
+            appState.sets.unshift(newSet);
+            saveAppState();
+            closeModal('newSetModal');
+            openSet(newSet.id);
+            showToast('Новий набір створено ✓');
+        }
+
+        function openBulkImportModal() {
+            document.getElementById('existingSetBulkInput').value = '';
+            openModal('bulkImportModal');
+        }
+
+        function importIntoActiveSet() {
+            const setObj = appState.sets.find(s => s.id === activeSetId);
+            if (!setObj) return;
+            const raw = document.getElementById('existingSetBulkInput').value.trim();
+            const parsed = parseBulkCardLines(raw);
+            if (!parsed.length) return showToast('Не знайдено жодного рядка для імпорту');
+            setObj.cards.unshift(...parsed);
+            saveAppState();
+            closeModal('bulkImportModal');
+            renderSetDetail();
+            showToast(`Додано карток: ${parsed.length} ✓`);
+        }
+
+        function copyBackupToClipboard() {
+            const ta = document.createElement('textarea');
+            ta.value = JSON.stringify(appState);
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            ta.remove();
+            showToast('JSON-бекап скопійовано в буфер обміну!');
+        }
+
+        function downloadBackupFile() {
+            const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(appState, null, 2));
+            const link = document.createElement('a');
+            link.href = dataUri;
+            link.download = `omni_backup_${getIsoDate(0)}.json`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            showToast('Файл резервної копії завантажено');
+        }
+
+        function restoreBackupFromJson() {
+            const raw = document.getElementById('restoreBackupTextarea').value.trim();
+            if (!raw) return showToast('Вставте JSON-код');
+            try {
+                const parsed = JSON.parse(raw);
+                if (!Array.isArray(parsed.sets)) throw new Error('Invalid JSON');
+                appState = Object.assign(appState, parsed);
+                saveAppState();
+                closeModal('backupModal');
+                goHome();
+                showToast('Базу слів та прогрес відновлено! 🎉');
+            } catch (e) {
+                showToast('Помилка: невірний формат JSON');
+            }
+        }
+
+        /* ==================== 19. INLINE PWA MANIFEST & OFFLINE SERVICE WORKER ==================== */
+        function initOfflinePwa() {
+            try {
+                const manifest = {
+                    name: 'omni — Німецька мова (A2–B1)',
+                    short_name: 'omni',
+                    start_url: '.',
+                    display: 'standalone',
+                    background_color: '#0a092d',
+                    theme_color: '#0a092d',
+                    icons: [{
+                        src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='110' fill='%230a092d'/%3E%3Ccircle cx='256' cy='256' r='140' fill='none' stroke='%234255ff' stroke-width='44'/%3E%3Ccircle cx='256' cy='256' r='48' fill='%23ffcd1f'/%3E%3C/svg%3E",
+                        sizes: '512x512',
+                        type: 'image/svg+xml'
+                    }]
+                };
+                const mBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+                const mLink = document.createElement('link');
+                mLink.rel = 'manifest';
+                mLink.href = URL.createObjectURL(mBlob);
+                document.head.appendChild(mLink);
+
+                if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+                    const swSource = `
+                        const CACHE = 'omni-offline-v10';
+                        self.addEventListener('install', e => {
+                            e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./'])));
+                            self.skipWaiting();
+                        });
+                        self.addEventListener('fetch', e => {
+                            e.respondWith(
+                                caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
+                                    const clone = res.clone();
+                                    caches.open(CACHE).then(c => c.put(e.request, clone));
+                                    return res;
+                                }).catch(() => cached))
+                            );
+                        });
+                    `;
+                    const swBlob = new Blob([swSource], { type: 'application/javascript' });
+                    navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(() => {});
+                }
+            } catch (e) {}
+        }
+
+
+        /* ==================== 20. GOETHE ACADEMY (A1->C1 KURSBUCH / ARBEITSBUCH / LÖSUNGSBUCH) ==================== */
+        const GOETHE_LESSONS = [
     {
         "id": "l01-a1-ankommen",
         "level": "A1",
