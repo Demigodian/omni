@@ -23134,7 +23134,7 @@ alter table omni_sync disable row level security;</pre>
                         <div style="font-size:13px;color:var(--text-secondary);">${escapeHtml(card.ua)}</div>
                     </div>
                     <div style="display:flex;gap:6px;flex-shrink:0;">
-                        <button class="pill-btn" onclick="speakGerman('${escapeHtml(card.de).replace(/'/g, "\\'")}')">🔊</button>
+                        <button class="pill-btn" data-speak-de="${escapeHtml(card.de)}" onclick="speakGerman(this.dataset.speakDe)">🔊</button>
                         <button class="pill-btn" style="color:${card.starred ? 'var(--gold)' : 'var(--text-muted)'};" onclick="toggleSearchCardStar('${card.id}')">★</button>
                     </div>
                 `;
@@ -23219,7 +23219,7 @@ alter table omni_sync disable row level security;</pre>
                             ${card.exUa ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">↳ ${escapeHtml(card.exUa)}</div>` : ''}
                         </div>
                         <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
-                            <button class="pill-btn" style="min-height:36px;padding:0 8px;" onclick="speakGerman('${escapeHtml(card.de).replace(/'/g, "\\'")}')">🔊</button>
+                            <button class="pill-btn" style="min-height:36px;padding:0 8px;" data-speak-de="${escapeHtml(card.de)}" onclick="speakGerman(this.dataset.speakDe)">🔊</button>
                             <button class="pill-btn" style="min-height:36px;padding:0 8px;color:${card.starred ? 'var(--gold)' : 'var(--text-muted)'};" onclick="toggleCardStar('${card.id}')">★</button>
                             ${!setObj.isSmart ? `
                                 <button class="pill-btn" style="min-height:36px;padding:0 8px;" onclick="openCardModal('${card.id}')">✏️</button>
@@ -27518,7 +27518,6 @@ Return valid JSON with this exact schema:
             "sprechenPrompt": "Sprechen C1 (Vortrag + Diskussion): Виступи з доповіддю на 3 хвилини про важливість доказової медицини (Evidenzbasierte Medizin) та неперервного навчання лікарів."
         }
     }
-];
 
  kurz ein Wärmegefühl spüren. Wichtig ist, dass Sie morgen früh nüchtern bleiben."
                 }
