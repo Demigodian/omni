@@ -65,8 +65,14 @@
             color: inherit;
         }
 
-        button {
+        button, .lesson-card, .set-card, .fc-stage, .match-tile, .word-token {
             cursor: pointer;
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        button {
             border: none;
             background: none;
             transition: transform 0.13s ease, background-color 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
@@ -25395,48 +25401,13 @@ Return valid JSON with this exact schema:
         /* ==================== 19. INLINE PWA MANIFEST & OFFLINE SERVICE WORKER ==================== */
         function initOfflinePwa() {
             try {
-                const manifest = {
-                    name: 'omni — Німецька мова (A2–B1)',
-                    short_name: 'omni',
-                    start_url: '.',
-                    display: 'standalone',
-                    background_color: '#0a092d',
-                    theme_color: '#0a092d',
-                    icons: [{
-                        src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='110' fill='%230a092d'/%3E%3Ccircle cx='256' cy='256' r='140' fill='none' stroke='%234255ff' stroke-width='44'/%3E%3Ccircle cx='256' cy='256' r='48' fill='%23ffcd1f'/%3E%3C/svg%3E",
-                        sizes: '512x512',
-                        type: 'image/svg+xml'
-                    }]
-                };
-                const mBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-                const mLink = document.createElement('link');
-                mLink.rel = 'manifest';
-                mLink.href = URL.createObjectURL(mBlob);
-                document.head.appendChild(mLink);
-
-                if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-                    const swSource = `
-                        const CACHE = 'omni-offline-v10';
-                        self.addEventListener('install', e => {
-                            e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./'])));
-                            self.skipWaiting();
-                        });
-                        self.addEventListener('fetch', e => {
-                            e.respondWith(
-                                caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
-                                    const clone = res.clone();
-                                    caches.open(CACHE).then(c => c.put(e.request, clone));
-                                    return res;
-                                }).catch(() => cached))
-                            );
-                        });
-                    `;
-                    const swBlob = new Blob([swSource], { type: 'application/javascript' });
-                    navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(() => {});
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.getRegistrations().then(regs => {
+                        regs.forEach(r => r.unregister());
+                    }).catch(() => {});
                 }
             } catch (e) {}
         }
-
 
         /* ==================== 20. GOETHE ACADEMY (A1->C1 KURSBUCH / ARBEITSBUCH / LÖSUNGSBUCH) ==================== */
         const GOETHE_LESSONS = [
