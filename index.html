@@ -166,9 +166,13 @@
         <h2 class="text-sm font-bold text-white">1. Google Gemini API (для AI-Репетитора)</h2>
         <input id="geminiKeyInput" type="password" placeholder="AIzaSy..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white" />
         <select id="geminiModelSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
-          <option value="gemini-3.8-flash">Gemini 3.8 Flash (Швидкий репетитор)</option>
-          <option value="gemini-3.7-flash">Gemini 3.7 Flash (Глибокий аналіз C1–C2)</option>
-          <option value="gemini-2.5-flash">Gemini 2.5 Flash (Стабільний резерв 24/7)</option>
+          <option value="gemma-4-31b-it">Gemma 4 31B IT</option>
+          <option value="gemma-4-26b-a4b-it">Gemma 4 26B A4B IT</option>
+          <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+          <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
+          <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
+          <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+          <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite</option>
         </select>
       </div>
 
@@ -233,7 +237,7 @@
 
   window.onload = () => {
     document.getElementById('geminiKeyInput').value = localStorage.getItem('omni_gemini_key') || '';
-    document.getElementById('geminiModelSelect').value = localStorage.getItem('omni_gemini_model') || 'gemini-3.0-flash';
+    document.getElementById('geminiModelSelect').value = localStorage.getItem('omni_gemini_model') || 'gemma-4-31b-it';
     document.getElementById('sbUrlInput').value = localStorage.getItem('omni_sb_url') || '';
     document.getElementById('sbKeyInput').value = localStorage.getItem('omni_sb_key') || '';
     updateBadge();
@@ -458,24 +462,51 @@
     chatHistory.push({ role: "user", parts: [{ text }] });
     if (chatHistory.length > 12) chatHistory = chatHistory.slice(-12);
 
-    const model = localStorage.getItem('omni_gemini_model') || 'gemini-3.8-flash';
-    try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: GOETHE_SYSTEM_PROMPT }] },
-          contents: chatHistory,
-          generationConfig: { temperature: 0.35 }
-        })
-      });
-      const data = await res.json();
-      document.getElementById(loadId)?.remove();
+    const selectedModel = localStorage.getItem('omni_gemini_model') || 'gemma-4-31b-it';
+    const modelsCascade = ['gemma-4-31b-it', 'gemma-4-26b-a4b-it', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'];
+    const cascade = [selectedModel, ...modelsCascade.filter(m => m !== selectedModel)];
 
-      if (data.error) {
-        feed.innerHTML += `<div class="glass rounded-2xl p-3 text-xs text-red-400">Помилка API: ${data.error.message}</div>`;
-        return;
+    let data = null;
+    for (const model of cascade) {
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: GOETHE_SYSTEM_PROMPT }] },
+            contents: chatHistory,
+            generationConfig: { temperature: 0.35 }
+          })
+        });
+
+        if (res.status === 503 || res.status === 429 || res.status === 404) {
+          continue;
+        }
+
+        const json = await res.json();
+        if (json.error) {
+          const code = json.error.code || res.status;
+          if (code === 503 || code === 429 || code === 404) {
+            continue;
+          }
+          data = json;
+          break;
+        }
+
+        data = json;
+        break;
+      } catch (e) {
+        continue;
       }
+    }
+
+    document.getElementById(loadId)?.remove();
+
+    if (!data || data.error) {
+      const errMsg = data?.error?.message || "Усі моделі каскаду недоступні або сталася помилка мережі.";
+      feed.innerHTML += `<div class="glass rounded-2xl p-3 text-xs text-red-400">Помилка API: ${errMsg}</div>`;
+      return;
+    }
 
       let rawReply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Помилка відповіді.";
       chatHistory.push({ role: "model", parts: [{ text: rawReply }] });
