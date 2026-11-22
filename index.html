@@ -57,6 +57,17 @@
 
     <!-- ==================== TAB 1: AI TUTOR (CONTEXTUAL GOETHE) ==================== -->
     <section id="tab-tutor" class="space-y-3">
+      <div id="tutorSessionHeader" class="hidden glass border-blue-500/40 bg-blue-900/10 rounded-2xl p-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div id="sessionProgressRing" class="w-10 h-10 rounded-full border-4 border-slate-700 flex items-center justify-center text-[10px] font-bold text-blue-400">0/5</div>
+          <div>
+            <div id="sessionTitle" class="text-xs font-bold text-white">Урок: Завантаження...</div>
+            <div id="sessionStep" class="text-[10px] text-slate-400">Крок 1: Переклад фраз</div>
+          </div>
+        </div>
+        <button onclick="stopTutorSession()" class="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded-lg">Завершити</button>
+      </div>
+
       <div class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
         <button onclick="applyPreset('analyze')" class="shrink-0 text-xs font-medium bg-blue-600/20 text-blue-300 border border-blue-500/30 px-3 py-2 rounded-xl">🔍 Розбір + Граматика</button>
         <button onclick="applyPreset('reply')" class="shrink-0 text-xs font-medium bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 px-3 py-2 rounded-xl">🗣️ Відповідь для уроку</button>
@@ -96,20 +107,34 @@
 
     <!-- ==================== TAB 2: FLASHCARDS ==================== -->
     <section id="tab-cards" class="hidden space-y-4">
-      <div class="flex items-center gap-2">
-        <select id="cardLevelFilter" onchange="currentCardIdx=0; renderCard()" class="bg-slate-800 border border-slate-700 text-xs text-white rounded-xl px-3 py-2 flex-1">
-          <option value="ALL">Усі рівні (A1–C2 + Уроки)</option>
-          <option value="A1">Рівень A1</option>
-          <option value="A2">Рівень A2</option>
-          <option value="B1">Рівень B1</option>
-          <option value="B2">Рівень B2</option>
-          <option value="C1">Рівень C1</option>
-          <option value="C2">Рівень C2</option>
-        </select>
-        <button onclick="pullFromSupabase()" class="bg-slate-800 border border-slate-700 text-blue-300 text-xs font-bold px-3 py-2 rounded-xl">🔄 Оновити</button>
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center gap-2">
+          <select id="cardLevelFilter" onchange="updateCardTopicFilter(); currentCardIdx=0; renderCard()" class="bg-slate-800 border border-slate-700 text-xs text-white rounded-xl px-3 py-2 flex-1">
+            <option value="ALL">Усі рівні (A1–C2)</option>
+            <option value="A1">Рівень A1</option>
+            <option value="A2">Рівень A2</option>
+            <option value="B1">Рівень B1</option>
+            <option value="B2">Рівень B2</option>
+            <option value="C1">Рівень C1</option>
+          </select>
+          <button onclick="pullFromSupabase()" class="bg-slate-800 border border-slate-700 text-blue-300 text-xs font-bold px-3 py-2 rounded-xl">🔄</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <select id="cardTopicFilter" onchange="updateCardBlockFilter(); currentCardIdx=0; renderCard()" class="bg-slate-800 border border-slate-700 text-xs text-white rounded-xl px-3 py-2">
+            <option value="ALL">Усі теми</option>
+          </select>
+          <select id="cardBlockFilter" onchange="currentCardIdx=0; renderCard()" class="bg-slate-800 border border-slate-700 text-xs text-white rounded-xl px-3 py-2">
+            <option value="ALL">Усі блоки</option>
+          </select>
+        </div>
+        <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-1">
+          <div id="cardProgressBar" class="h-full bg-blue-500 w-0 transition-all duration-500"></div>
+        </div>
+        <div id="cardProgressText" class="text-[10px] text-center text-slate-500 font-medium uppercase tracking-wider">Прогрес теми: 0 / 0</div>
       </div>
 
-      <div onclick="flipCard()" class="glass rounded-3xl p-6 min-h-[260px] flex flex-col justify-between cursor-pointer border border-slate-700 select-none">
+      <div onclick="flipCard()" class="glass rounded-3xl p-6 min-h-[260px] flex flex-col justify-between cursor-pointer border border-slate-700 select-none relative overflow-hidden">
+        <div id="cardBadge" class="absolute top-0 right-0 bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-3 py-1 rounded-bl-xl hidden">ВИВЧЕНО</div>
         <div class="flex items-center justify-between text-xs text-slate-400">
           <span id="cardModuleTag" class="bg-slate-800 px-2.5 py-1 rounded-lg text-blue-300 font-bold">A2</span>
           <span id="cardCounter">0 / 0</span>
@@ -138,7 +163,7 @@
       </div>
     </section>
 
-    <!-- ==================== TAB 3: BOOKS & MODULES (FROM SUPABASE) ==================== -->
+    <!-- ==================== TAB 3: BOOKS (TUTORIALS) ==================== -->
     <section id="tab-books" class="hidden space-y-3">
       <div class="flex items-center justify-between gap-2">
         <div class="flex gap-1.5 overflow-x-auto no-scrollbar">
@@ -148,17 +173,60 @@
           <button onclick="filterModules('B1')" class="lvl-pill bg-slate-800 text-slate-300 text-xs font-bold px-3 py-1.5 rounded-xl">B1</button>
           <button onclick="filterModules('B2')" class="lvl-pill bg-slate-800 text-slate-300 text-xs font-bold px-3 py-1.5 rounded-xl">B2</button>
           <button onclick="filterModules('C1')" class="lvl-pill bg-slate-800 text-slate-300 text-xs font-bold px-3 py-1.5 rounded-xl">C1</button>
-          <button onclick="filterModules('C2')" class="lvl-pill bg-slate-800 text-slate-300 text-xs font-bold px-3 py-1.5 rounded-xl">C2</button>
         </div>
         <button onclick="pullFromSupabase()" class="shrink-0 text-xs bg-slate-800 text-emerald-300 px-2.5 py-1.5 rounded-xl border border-slate-700">🔄</button>
       </div>
 
-      <div id="modulesContainer" class="space-y-3">
-        <div class="glass rounded-2xl p-4 text-xs text-slate-400 text-center">
-          Підключи Supabase у вкладці «⚙️ База / API» та натисни «⬇️ Завантажити базу».
-        </div>
+      <div id="modulesContainer" class="space-y-4">
+        <!-- Гурпування за джерелами/категоріями -->
       </div>
     </section>
+
+    <!-- ==================== LESSON MODAL ==================== -->
+    <div id="lessonModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div class="glass w-full max-w-lg rounded-3xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+          <div>
+            <div id="modalTopicLvl" class="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-0.5">A2 • ТЕМА</div>
+            <h3 id="modalTopicTitle" class="text-sm font-bold text-white">Назва уроку</h3>
+          </div>
+          <button onclick="closeLessonModal()" class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 text-xl">×</button>
+        </div>
+
+        <div class="flex border-b border-slate-800">
+          <button onclick="switchLessonTab(1)" id="lTabBtn1" class="flex-1 py-3 text-[11px] font-bold border-b-2 border-blue-500 text-blue-400">1. ТЕОРІЯ</button>
+          <button onclick="switchLessonTab(2)" id="lTabBtn2" class="flex-1 py-3 text-[11px] font-bold border-b-2 border-transparent text-slate-400">2. СЛОВНИК</button>
+          <button onclick="switchLessonTab(3)" id="lTabBtn3" class="flex-1 py-3 text-[11px] font-bold border-b-2 border-transparent text-slate-400">3. ТРЕНУВАННЯ</button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-5 space-y-4 no-scrollbar">
+          <!-- Tab 1: Theory -->
+          <div id="lTab1" class="space-y-3">
+            <div id="modalGrammar" class="text-sm text-slate-200 leading-relaxed space-y-2"></div>
+            <div id="modalBridge" class="hidden bg-indigo-900/20 border border-indigo-500/30 p-3 rounded-2xl">
+              <div class="text-[11px] font-bold text-indigo-300 mb-1">💡 Bridge A2 → B1:</div>
+              <div id="modalBridgeContent" class="text-xs text-slate-300 italic leading-relaxed"></div>
+            </div>
+          </div>
+
+          <!-- Tab 2: Vocab -->
+          <div id="lTab2" class="hidden space-y-3">
+            <div id="modalVocabList" class="space-y-2"></div>
+            <button id="goToCardsBtn" class="w-full bg-slate-800 border border-slate-700 text-blue-300 text-xs font-bold py-2.5 rounded-xl mt-4">Вчити ці слова в картках →</button>
+          </div>
+
+          <!-- Tab 3: Practice -->
+          <div id="lTab3" class="hidden flex flex-col items-center justify-center py-8 text-center space-y-4">
+            <div class="w-16 h-16 rounded-3xl bg-blue-600/20 flex items-center justify-center text-3xl">👨‍🏫</div>
+            <div>
+              <h4 class="text-base font-bold text-white mb-1">Персональний урок з ШІ</h4>
+              <p class="text-xs text-slate-400 px-4">Репетитор проведе тебе через 5 практичних кроків для повного засвоєння цієї теми.</p>
+            </div>
+            <button id="startLessonBtn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-2xl shadow-lg shadow-blue-900/40">Почати урок по цій темі</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- ==================== TAB 4: SETTINGS ==================== -->
     <section id="tab-settings" class="hidden space-y-4">
@@ -216,6 +284,10 @@
   let isFlipped = false;
   let currentModuleLevel = 'ALL';
   let pendingExtractedCards = [];
+  
+  // New session state
+  let activeTutorSession = null;
+  let activeLessonModule = null;
 
   const GOETHE_SYSTEM_PROMPT = `Ти — старший викладач та екзаменатор Goethe-Institut (рівні A1–C2).
 Поточний рівень учня: A2, його мета — впевнено скласти іспит Goethe C1.
@@ -225,15 +297,20 @@
 2. Коли розбираєш нову лексику з речення або підручника:
    - Для іменників завжди вказуй артикль та форму множини (напр. der Umzug, die Umzüge).
    - Для дієслів вказуй 3 форми (Infinitiv – Präteritum – Partizip II) та керування (Präposition + Kasus, напр. sich erinnern an + Akk. -> daran).
-   - Обов'язково зазначай регіональні відмінності (Австрія / Південний Тироль vs Німеччина), якщо слово має локальну специфіку (напр. heuer, Christbaum, Sackerl).
 3. Коли учень просить перевірити його текст або підняти рівень:
-   - Спочатку виправ граматичні помилки (порядок слів, відмінки, артиклі) з коротким поясненням українською.
-   - Потім покажи 2 варіанти, як цю саму думку сформулювати на рівні B1/B2 та на рівні іспиту C1 (використовуючи Redemittel).
-4. Наприкінці розбору пропонуй 1 коротке інтерактивне міні-завдання (переклад 1 речення з української або підстановка прийменника) для закріплення.
-5. У САМОМУ КІНЦІ відповіді, якщо в розборі фігурували корисні німецькі слова чи фрази, додай валідний JSON-блок для збереження в картки:
-\`\`\`json
-[{"de": "німецьке слово/фраза", "ua": "переклад українською", "ex": "приклад речення німецькою"}]
-\`\`\``;
+   - Спочатку виправ граматичні помилки з коротким поясненням українською.
+   - Потім покажи варіанти B1/B2 та C1.
+4. Наприкінці розбору пропонуй 1 коротке інтерактивне міні-завдання.
+
+РЕЖИМ СИСТЕМНОГО ТРЕНУВАННЯ (5 КРОКІВ):
+Якщо в контексті є "SESSION_DATA", ти маєш вести учня по 5 послідовних завданнях:
+Крок 1: Простий переклад фраз (A2).
+Крок 2: Побудова речення з новими словами.
+Крок 3: Завдання на граматику блоку.
+Крок 4: Складання речення середньої складності.
+Крок 5: Побудова речення рівня B1+ з використанням граматики.
+Давай ТІЛЬКИ ОДНЕ завдання за раз. Чекай відповідь. Коротко аналізуй помилки українською і переходь до наступного кроку.
+В самому кінці вистав підсумок оцінку та напиши фразу: "БЛОК ПРОЙДЕНО".`;
 
   window.onload = () => {
     document.getElementById('geminiKeyInput').value = localStorage.getItem('omni_gemini_key') || '';
@@ -241,6 +318,7 @@
     document.getElementById('sbUrlInput').value = localStorage.getItem('omni_sb_url') || '';
     document.getElementById('sbKeyInput').value = localStorage.getItem('omni_sb_key') || '';
     updateBadge();
+    updateCardTopicFilter();
     renderCard();
     renderModules();
     if (localStorage.getItem('omni_sb_url')) pullFromSupabase(true);
@@ -266,99 +344,210 @@
   async function pullFromSupabase(silent = false) {
     const sb = getSbClient();
     const status = document.getElementById('syncStatusText');
-    if (!sb) {
-      if (!silent) alert("Вкажи Supabase URL та Publishable Key у налаштуваннях.");
-      return;
-    }
-    status.innerText = "⏳ Завантаження курсів та словників із Supabase...";
+    if (!sb) { if (!silent) alert("Вкажи Supabase URL та Publishable Key."); return; }
+    status.innerText = "⏳ Завантаження...";
     try {
       const [modRes, cardRes] = await Promise.all([
-        sb.from('omni_modules').select('*').order('id', { ascending: false }).limit(300),
-        sb.from('omni_cards').select('*').order('id', { ascending: false }).limit(3000)
+        sb.from('omni_modules').select('*').order('id', { ascending: false }).limit(400),
+        sb.from('omni_cards').select('*').order('id', { ascending: false }).limit(4000)
       ]);
-
-      if (modRes.error) throw modRes.error;
-      if (cardRes.error) throw cardRes.error;
-
-      if (modRes.data) {
-        modules = modRes.data;
-        localStorage.setItem('omni_modules_v32', JSON.stringify(modules));
-        renderModules();
-      }
-      if (cardRes.data && cardRes.data.length > 0) {
-        cards = cardRes.data;
-        localStorage.setItem('omni_cards_v32', JSON.stringify(cards));
-        updateBadge();
-        renderCard();
-      }
-      status.innerText = `✅ Синхронізовано: ${modules.length} модулів та ${cards.length} карток`;
-    } catch (e) {
-      status.innerText = `⚠️ Помилка Supabase: ${e.message}`;
-    }
+      if (modRes.data) { modules = modRes.data; localStorage.setItem('omni_modules_v32', JSON.stringify(modules)); renderModules(); }
+      if (cardRes.data) { cards = cardRes.data; localStorage.setItem('omni_cards_v32', JSON.stringify(cards)); updateBadge(); updateCardTopicFilter(); renderCard(); }
+      status.innerText = "✅ Оновлено!";
+    } catch (e) { status.innerText = `⚠️ Помилка: ${e.message}`; }
   }
 
-  // ==================== MODULES (BOOKS) RENDER ====================
+  // ==================== MODULES (BOOKS) ====================
   function filterModules(lvl) {
     currentModuleLevel = lvl;
     document.querySelectorAll('.lvl-pill').forEach(btn => {
       const active = btn.innerText === lvl || (lvl === 'ALL' && btn.innerText === 'Усі');
-      btn.className = active
-        ? 'lvl-pill bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl'
-        : 'lvl-pill bg-slate-800 text-slate-300 text-xs font-bold px-3 py-1.5 rounded-xl';
+      btn.className = active ? 'lvl-pill bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl' : 'lvl-pill bg-slate-800 text-slate-300 text-xs font-bold px-3 py-1.5 rounded-xl';
     });
     renderModules();
   }
 
   function renderModules() {
-    const box = document.getElementById('modulesContainer');
+    const container = document.getElementById('modulesContainer');
     const filtered = currentModuleLevel === 'ALL' ? modules : modules.filter(m => m.level === currentModuleLevel);
-    if (!filtered.length) {
-      box.innerHTML = `<div class="glass rounded-2xl p-4 text-xs text-slate-400 text-center">Немає модулів для цього рівня. Запусти скрипт process_books.py на ПК, щоб наповнити базу.</div>`;
+    
+    // Group by source_file (Category)
+    const groups = {};
+    filtered.forEach(m => {
+      const cat = m.source_file || 'Інше';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(m);
+    });
+
+    if (!Object.keys(groups).length) {
+      container.innerHTML = '<div class="glass p-8 text-center text-slate-500 text-xs">Немає модулів для обраного рівня.</div>';
       return;
     }
-    box.innerHTML = filtered.map(m => `
-      <details class="glass rounded-2xl p-3.5 border border-slate-800">
-        <summary class="cursor-pointer list-none flex items-center justify-between gap-2">
-          <div>
-            <span class="text-[10px] font-bold bg-blue-600/30 text-blue-300 px-2 py-0.5 rounded mr-1.5">${m.level}</span>
-            <span class="text-xs font-bold text-white">${m.topic_title}</span>
-            <div class="text-[10px] text-slate-500 mt-0.5">📄 ${m.source_file}</div>
-          </div>
-          <span class="text-slate-400 text-xs">▼</span>
-        </summary>
-        <div class="mt-3 pt-3 border-t border-slate-800 text-xs text-slate-200 space-y-2 leading-relaxed">
-          <div>${(m.grammar_ua || '').replace(/\n/g, '<br>')}</div>
-          ${Array.isArray(m.key_phrases) && m.key_phrases.length ? `
-            <div class="bg-slate-900/90 p-2.5 rounded-xl space-y-1">
-              <div class="text-[11px] font-bold text-emerald-400">Ключові конструкції (Redemittel):</div>
-              ${m.key_phrases.map(p => `<div>• <strong>${p.de}</strong> — ${p.ua}</div>`).join('')}
-            </div>` : ''}
-          <button onclick="practiceModule('${encodeURIComponent(m.topic_title)}')" class="mt-2 w-full bg-blue-600/20 border border-blue-500/40 text-blue-300 font-bold py-2 rounded-xl">
-            🎯 Потренувати цю тему з ШІ-репетитором
-          </button>
+
+    container.innerHTML = Object.entries(groups).map(([cat, mods]) => `
+      <div class="space-y-2">
+        <div class="flex items-center justify-between px-1">
+          <h3 class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">${cat}</h3>
+          <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">${mods.length} блоків</span>
         </div>
-      </details>
+        <div class="grid gap-2">
+          ${mods.map(m => `
+            <div onclick="openLessonModal(${m.id})" class="glass rounded-2xl p-3.5 flex items-center justify-between border border-slate-800 active:scale-[0.98] transition-transform cursor-pointer">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-lg">📘</div>
+                <div>
+                  <div class="text-[10px] font-bold text-blue-400 uppercase">${m.level}</div>
+                  <div class="text-xs font-bold text-white">${m.topic_title}</div>
+                </div>
+              </div>
+              <div class="text-slate-600">→</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
     `).join('');
   }
 
-  function practiceModule(encodedTitle) {
-    const title = decodeURIComponent(encodedTitle);
-    switchTab('tutor');
-    document.getElementById('tutorInput').value = `Потренуй мене по темі з підручника: "${title}". Поясни коротко головне правило і дай 1 практичне завдання українською для перекладу німецькою.`;
-    sendToTutor();
+  // ==================== LESSON MODAL LOGIC ====================
+  function openLessonModal(id) {
+    const m = modules.find(x => x.id === id);
+    if (!m) return;
+    activeLessonModule = m;
+    document.getElementById('modalTopicLvl').innerText = `${m.level} • ТЕМА`;
+    document.getElementById('modalTopicTitle').innerText = m.topic_title;
+    document.getElementById('modalGrammar').innerHTML = (m.grammar_block || m.grammar_ua || 'Теорія відсутня.').replace(/\n/g, '<br>');
+    
+    if (m.bridge_a2_b1) {
+      document.getElementById('modalBridge').classList.remove('hidden');
+      document.getElementById('modalBridgeContent').innerText = m.bridge_a2_b1;
+    } else {
+      document.getElementById('modalBridge').classList.add('hidden');
+    }
+
+    // Vocab List
+    const blockVocab = cards.filter(c => c.topic_title === m.topic_title);
+    const vocabBox = document.getElementById('modalVocabList');
+    if (blockVocab.length) {
+      vocabBox.innerHTML = blockVocab.slice(0, 15).map(v => `
+        <div class="flex items-center justify-between bg-slate-900/50 p-2 rounded-xl border border-slate-800/50">
+          <div class="text-xs">
+            <span class="font-bold text-white">${v.de}</span>
+            <span class="text-slate-500 mx-1">—</span>
+            <span class="text-slate-400">${v.ua}</span>
+          </div>
+          <button onclick="speakText('${v.de.replace(/'/g, "\\'")}')" class="text-[10px] bg-slate-800 px-2 py-1 rounded-lg">🔊</button>
+        </div>
+      `).join('');
+      document.getElementById('goToCardsBtn').classList.remove('hidden');
+      document.getElementById('goToCardsBtn').onclick = () => {
+        closeLessonModal();
+        switchTab('cards');
+        document.getElementById('cardLevelFilter').value = m.level;
+        updateCardTopicFilter();
+        document.getElementById('cardTopicFilter').value = m.topic_title;
+        updateCardBlockFilter();
+        renderCard();
+      };
+    } else {
+      vocabBox.innerHTML = '<div class="text-center text-slate-500 text-xs py-4">Слова для цього блоку ще не завантажені.</div>';
+      document.getElementById('goToCardsBtn').classList.add('hidden');
+    }
+
+    document.getElementById('startLessonBtn').onclick = () => startTutorSession(m);
+    
+    switchLessonTab(1);
+    document.getElementById('lessonModal').classList.remove('hidden');
   }
 
-  // ==================== FLASHCARDS ====================
+  function closeLessonModal() { document.getElementById('lessonModal').classList.add('hidden'); }
+
+  function switchLessonTab(n) {
+    [1, 2, 3].forEach(i => {
+      document.getElementById(`lTab${i}`).classList.toggle('hidden', i !== n);
+      document.getElementById(`lTabBtn${i}`).className = i === n 
+        ? 'flex-1 py-3 text-[11px] font-bold border-b-2 border-blue-500 text-blue-400'
+        : 'flex-1 py-3 text-[11px] font-bold border-b-2 border-transparent text-slate-400';
+    });
+  }
+
+  function speakText(txt) {
+    const u = new SpeechSynthesisUtterance(txt);
+    u.lang = 'de-DE';
+    speechSynthesis.speak(u);
+  }
+
+  // ==================== TUTOR SESSION LOGIC ====================
+  function startTutorSession(m) {
+    closeLessonModal();
+    switchTab('tutor');
+    activeTutorSession = { 
+      moduleId: m.id, 
+      title: m.topic_title, 
+      level: m.level, 
+      step: 1, 
+      grammar: m.grammar_ua,
+      words: cards.filter(c => c.topic_title === m.topic_title).map(c => c.de).join(', ')
+    };
+    
+    document.getElementById('tutorSessionHeader').classList.remove('hidden');
+    updateSessionUI();
+    
+    const prompt = `РОЗПОЧНИ УРОК. SESSION_DATA: Тема "${m.topic_title}", Рівень ${m.level}. 
+Граматика: ${m.grammar_ua.substring(0, 300)}. 
+Слова: ${activeTutorSession.words.substring(0, 200)}.
+Дай Крок 1: Прості фрази для перекладу (3 шт).`;
+    
+    document.getElementById('tutorInput').value = prompt;
+    sendToTutor(true);
+  }
+
+  function updateSessionUI() {
+    if (!activeTutorSession) return;
+    document.getElementById('sessionTitle').innerText = `Урок: ${activeTutorSession.title}`;
+    document.getElementById('sessionProgressRing').innerText = `${activeTutorSession.step}/5`;
+    const steps = ["", "Переклад фраз", "Побудова речення", "Граматика", "Складне речення", "Фінальний виклик"];
+    document.getElementById('sessionStep').innerText = `Крок ${activeTutorSession.step}: ${steps[activeTutorSession.step]}`;
+  }
+
+  function stopTutorSession() {
+    activeTutorSession = null;
+    document.getElementById('tutorSessionHeader').classList.add('hidden');
+  }
+
+  // ==================== FLASHCARDS CASCAED ====================
+  function updateCardTopicFilter() {
+    const lvl = document.getElementById('cardLevelFilter').value;
+    const filtered = lvl === 'ALL' ? cards : cards.filter(c => c.level === lvl);
+    const topics = [...new Set(filtered.map(c => c.topic_title || 'Без теми'))];
+    const select = document.getElementById('cardTopicFilter');
+    select.innerHTML = '<option value="ALL">Усі теми</option>' + topics.map(t => `<option value="${t}">${t}</option>`).join('');
+    updateCardBlockFilter();
+  }
+
+  function updateCardBlockFilter() {
+    const lvl = document.getElementById('cardLevelFilter').value;
+    const topic = document.getElementById('cardTopicFilter').value;
+    let filtered = lvl === 'ALL' ? cards : cards.filter(c => c.level === lvl);
+    if (topic !== 'ALL') filtered = filtered.filter(c => c.topic_title === topic);
+    const blocks = [...new Set(filtered.map(c => c.source_file || 'Основний'))];
+    const select = document.getElementById('cardBlockFilter');
+    select.innerHTML = '<option value="ALL">Усі блоки</option>' + blocks.map(b => `<option value="${b}">${b}</option>`).join('');
+  }
+
   function getFilteredCards() {
     const lvl = document.getElementById('cardLevelFilter').value;
-    if (lvl === 'ALL') return cards;
-    return cards.filter(c => c.level === lvl);
+    const topic = document.getElementById('cardTopicFilter').value;
+    const block = document.getElementById('cardBlockFilter').value;
+    let filtered = lvl === 'ALL' ? cards : cards.filter(c => c.level === lvl);
+    if (topic !== 'ALL') filtered = filtered.filter(c => c.topic_title === topic);
+    if (block !== 'ALL') filtered = filtered.filter(c => c.source_file === block);
+    return filtered;
   }
 
   function renderCard() {
     const list = getFilteredCards();
     if (!list.length) {
-      document.getElementById('cardFront').innerText = "Карток поки немає";
+      document.getElementById('cardFront').innerText = "Порожньо";
       document.getElementById('cardCounter').innerText = "0 / 0";
       document.getElementById('cardBack').classList.add('hidden');
       return;
@@ -375,13 +564,16 @@
     document.getElementById('cardSource').innerText = c.source_file ? `Джерело: ${c.source_file}` : '';
     document.getElementById('cardBack').classList.add('hidden');
     document.getElementById('cardSub').classList.remove('hidden');
+    document.getElementById('cardBadge').classList.toggle('hidden', !c.learned);
+
+    // Progress bar
+    const learned = list.filter(x => x.learned).length;
+    const pct = Math.round((learned / list.length) * 100);
+    document.getElementById('cardProgressBar').style.width = pct + '%';
+    document.getElementById('cardProgressText').innerText = `Прогрес теми: ${learned} / ${list.length}`;
   }
 
-  function flipCard() {
-    isFlipped = !isFlipped;
-    document.getElementById('cardBack').classList.toggle('hidden', !isFlipped);
-    document.getElementById('cardSub').classList.toggle('hidden', isFlipped);
-  }
+  function flipCard() { isFlipped = !isFlipped; document.getElementById('cardBack').classList.toggle('hidden', !isFlipped); document.getElementById('cardSub').classList.toggle('hidden', isFlipped); }
 
   async function markLearned() {
     const list = getFilteredCards();
@@ -397,164 +589,106 @@
 
   function speakGerman() {
     const list = getFilteredCards();
-    if (!list.length) return;
-    const u = new SpeechSynthesisUtterance(list[currentCardIdx].de);
-    u.lang = 'de-DE';
-    speechSynthesis.speak(u);
+    if (list.length) speakText(list[currentCardIdx].de);
   }
 
   function explainCurrentCard() {
     const list = getFilteredCards();
     if (!list.length) return;
     switchTab('tutor');
-    document.getElementById('tutorInput').value = `Поясни детально українською як репетитор Goethe слово/фразу "${list[currentCardIdx].de}": керування, типові помилки та 2 живі приклади.`;
+    document.getElementById('tutorInput').value = `Поясни як репетитор Goethe слово "${list[currentCardIdx].de}": керування, помилки та 2 приклади.`;
     sendToTutor();
   }
 
-  function updateBadge() {
-    document.getElementById('vocabBadge').innerText = `${cards.length} слів`;
-  }
+  function updateBadge() { document.getElementById('vocabBadge').innerText = `${cards.length} слів`; }
 
-  // ==================== AI TUTOR (WITH CONVERSATION MEMORY) ====================
-  function applyPreset(type) {
-    const input = document.getElementById('tutorInput');
-    if (type === 'drill') {
-      const sample = cards.slice(0, 5).map(c => c.de).join(', ');
-      input.value = sample
-        ? `Зроби для мене міні-тренування на 2 речення для перекладу українською, використавши слова з моєї бази: ${sample}.`
-        : `Дай мені 2 речення українською рівня A2 для перекладу німецькою з використанням прийменникових дієслів (sich erinnern an, denken an).`;
-      sendToTutor();
-      return;
-    }
-    const map = {
-      analyze: "Переклади українською та зроби детальний розбір лексики й граматики (артиклі, 3 форми дієслів, керування):\n\n",
-      reply: "Дай 2 природні відповіді репетитору німецькою (рівень A2/B1 та рівень B2) з перекладом українською на цю репліку:\n\n",
-      upgrade: "Перевір мій текст німецькою, виправ помилки українською і покажи, як сказати цю думку на рівні B1/B2 та C1:\n\n"
-    };
-    input.value = map[type] + input.value.trim();
-    input.focus();
-  }
-
-  async function pasteFromClipboard() {
-    try { document.getElementById('tutorInput').value = await navigator.clipboard.readText(); } catch (e) {}
-  }
-
-  function clearChat() {
-    chatHistory = [];
-    document.getElementById('chatFeed').innerHTML = '';
-    document.getElementById('extractedBox').classList.add('hidden');
-  }
-
-  async function sendToTutor() {
+  // ==================== AI TUTOR SEND ====================
+  async function sendToTutor(isSilent = false) {
     const inputEl = document.getElementById('tutorInput');
     const text = inputEl.value.trim();
     const apiKey = localStorage.getItem('omni_gemini_key');
     if (!text) return;
-    if (!apiKey) { alert("Вкажи Gemini API Key у вкладці «⚙️ База / API»."); switchTab('settings'); return; }
+    if (!apiKey) { alert("Вкажи API Key."); return; }
 
     const feed = document.getElementById('chatFeed');
-    feed.innerHTML += `<div class="bg-blue-600/20 border border-blue-500/30 rounded-2xl p-3.5 text-sm text-white ml-6 whitespace-pre-wrap">${text}</div>`;
+    if (!isSilent) feed.innerHTML += `<div class="bg-blue-600/20 border border-blue-500/30 rounded-2xl p-3.5 text-sm text-white ml-6 whitespace-pre-wrap">${text}</div>`;
     inputEl.value = '';
     const loadId = 'l-' + Date.now();
-    feed.innerHTML += `<div id="${loadId}" class="glass rounded-2xl p-3 text-xs text-blue-300">Репетитор готує розбір...</div>`;
+    feed.innerHTML += `<div id="${loadId}" class="glass rounded-2xl p-3 text-xs text-blue-300">Репетитор думає...</div>`;
     feed.scrollTop = feed.scrollHeight;
 
     chatHistory.push({ role: "user", parts: [{ text }] });
-    if (chatHistory.length > 12) chatHistory = chatHistory.slice(-12);
+    if (chatHistory.length > 20) chatHistory = chatHistory.slice(-20);
 
-    const selectedModel = localStorage.getItem('omni_gemini_model') || 'gemma-4-31b-it';
+    const model = localStorage.getItem('omni_gemini_model') || 'gemma-4-31b-it';
     const modelsCascade = ['gemma-4-31b-it', 'gemma-4-26b-a4b-it', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'];
-    const cascade = [selectedModel, ...modelsCascade.filter(m => m !== selectedModel)];
+    const cascade = [model, ...modelsCascade.filter(m => m !== model)];
 
     let data = null;
-    for (const model of cascade) {
+    for (const m of cascade) {
       try {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: GOETHE_SYSTEM_PROMPT }] },
             contents: chatHistory,
-            generationConfig: { temperature: 0.35 }
+            generationConfig: { temperature: 0.4 }
           })
         });
-
-        if (res.status === 503 || res.status === 429 || res.status === 404) {
-          continue;
-        }
-
-        const json = await res.json();
-        if (json.error) {
-          const code = json.error.code || res.status;
-          if (code === 503 || code === 429 || code === 404) {
-            continue;
-          }
-          data = json;
-          break;
-        }
-
-        data = json;
-        break;
-      } catch (e) {
-        continue;
-      }
+        if (res.ok) { data = await res.json(); break; }
+      } catch (e) {}
     }
 
     document.getElementById(loadId)?.remove();
+    if (!data || data.error) { feed.innerHTML += `<div class="glass p-3 text-xs text-red-400">Помилка API</div>`; return; }
 
-    if (!data || data.error) {
-      const errMsg = data?.error?.message || "Усі моделі каскаду недоступні або сталася помилка мережі.";
-      feed.innerHTML += `<div class="glass rounded-2xl p-3 text-xs text-red-400">Помилка API: ${errMsg}</div>`;
-      return;
+    let reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Помилка.";
+    chatHistory.push({ role: "model", parts: [{ text: reply }] });
+
+    // Handle session progress
+    if (activeTutorSession) {
+      if (reply.includes("БЛОК ПРОЙДЕНО")) {
+        stopTutorSession();
+      } else {
+        activeTutorSession.step = Math.min(5, activeTutorSession.step + 1);
+        updateSessionUI();
+      }
     }
 
-      let rawReply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Помилка відповіді.";
-      chatHistory.push({ role: "model", parts: [{ text: rawReply }] });
+    const match = reply.match(/```json\s*([\s\S]*?)\s*```/);
+    if (match) { try { pendingExtractedCards = JSON.parse(match[1]); document.getElementById('extractedBox').classList.remove('hidden'); } catch (e) {} reply = reply.replace(/```json[\s\S]*?```/, '').trim(); }
 
-      let displayReply = rawReply;
-      const match = displayReply.match(/```json\s*([\s\S]*?)\s*```/);
-      if (match) {
-        try {
-          pendingExtractedCards = JSON.parse(match[1]);
-          if (pendingExtractedCards.length) {
-            document.getElementById('extractedBox').classList.remove('hidden');
-            document.getElementById('extractedCount').innerText = `Знайдено слів: ${pendingExtractedCards.length}`;
-            document.getElementById('extractedPreview').innerText = pendingExtractedCards.map(x => x.de).join(', ');
-          }
-        } catch (e) {}
-        displayReply = displayReply.replace(/```json[\s\S]*?```/, '').trim();
-      }
+    const formatted = reply.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+    feed.innerHTML += `<div class="glass rounded-2xl p-3.5 text-sm text-slate-200 tutor-msg mr-2">${formatted}</div>`;
+    feed.scrollTop = feed.scrollHeight;
+  }
 
-      const formatted = displayReply
-        .replace(/^### (.*$)/gim, '<h4 class="font-bold text-white mt-2 mb-1">$1</h4>')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\n/g, '<br>');
-      feed.innerHTML += `<div class="glass rounded-2xl p-3.5 text-sm text-slate-200 tutor-msg mr-2">${formatted}</div>`;
-      feed.scrollTop = feed.scrollHeight;
+  function applyPreset(type) {
+    const map = { analyze: "Розбір: ", reply: "Відповідь: ", upgrade: "Upgrade: ", drill: "Дриль: " };
+    document.getElementById('tutorInput').value = map[type];
+    document.getElementById('tutorInput').focus();
   }
 
   async function saveExtractedCards() {
-    if (!pendingExtractedCards.length) return;
-    const newItems = pendingExtractedCards.map(c => ({
-      de: c.de, ua: c.ua, ex: c.ex || '', level: 'A2', source_file: 'Live Урок'
-    }));
+    const newItems = pendingExtractedCards.map(c => ({ ...c, level: 'A2', source_file: 'Урок' }));
     cards = [...newItems, ...cards];
     localStorage.setItem('omni_cards_v32', JSON.stringify(cards));
-    updateBadge();
-    const sb = getSbClient();
-    if (sb) await sb.from('omni_cards').upsert(newItems, { onConflict: 'de,level' });
+    updateBadge(); updateCardTopicFilter();
     document.getElementById('extractedBox').classList.add('hidden');
-    alert(`Збережено ${newItems.length} карток у базу!`);
+    alert("Збережено!");
   }
 
   function saveSettings() {
-    localStorage.setItem('omni_gemini_key', document.getElementById('geminiKeyInput').value.trim());
+    localStorage.setItem('omni_gemini_key', document.getElementById('geminiKeyInput').value);
     localStorage.setItem('omni_gemini_model', document.getElementById('geminiModelSelect').value);
-    localStorage.setItem('omni_sb_url', document.getElementById('sbUrlInput').value.trim());
-    localStorage.setItem('omni_sb_key', document.getElementById('sbKeyInput').value.trim());
-    alert("Налаштування збережено!");
-    pullFromSupabase();
+    localStorage.setItem('omni_sb_url', document.getElementById('sbUrlInput').value);
+    localStorage.setItem('omni_sb_key', document.getElementById('sbKeyInput').value);
+    alert("Збережено!"); pullFromSupabase();
   }
+  
+  async function pasteFromClipboard() { try { document.getElementById('tutorInput').value = await navigator.clipboard.readText(); } catch (e) {} }
+  function clearChat() { chatHistory = []; document.getElementById('chatFeed').innerHTML = ''; document.getElementById('extractedBox').classList.add('hidden'); }
 </script>
 </body>
 </html>
